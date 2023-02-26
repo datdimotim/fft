@@ -66,36 +66,77 @@ class FFT {
         return (ac[1] + M) % M;
     }
 
+    private static class ArrView {
+        long[] ms;
+        int start;
+        int length;
+        int step;
+
+        public ArrView(long[] ms) {
+            this.ms = ms;
+            start = 0;
+            length = ms.length;
+            step = 1;
+        }
+
+        public ArrView(long[] ms, int start, int length, int step) {
+            this.ms = ms;
+            this.start = start;
+            this.length = length;
+            this.step = step;
+        }
+
+        int getLength() {
+            return length;
+        }
+
+        long getAt(int i) {
+            return ms[start + i * step];
+        }
+
+        ArrView evens() {
+            return new ArrView(ms, start, length / 2, step * 2);
+        }
+
+        ArrView odds() {
+            return new ArrView(ms, start + step, length / 2, step * 2);
+        }
+    }
+
     /**
      *
      * F(w) = A(w^2) + w * B(w^2)
      *
      */
-    static long[] fft(long[] fs, long prim) {
-        if (fs.length == 1) {
-            return fs.clone();
+    static long[] fft(ArrView fs, long prim) {
+        int length = fs.getLength();
+        if (length == 1) {
+            return new long[] {fs.getAt(0)};
         }
 
-        long[] as = IntStream.iterate(0, i -> i < fs.length, i -> i + 2).mapToLong(i -> fs[i]).toArray();
-        long[] bs = IntStream.iterate(1, i -> i < fs.length, i -> i + 2).mapToLong(i -> fs[i]).toArray();
+        ArrView as = fs.evens();
+        ArrView bs = fs.odds();
 
         long[] fftA = fft(as, (prim * prim) % M);
         long[] fftB = fft(bs, (prim * prim) % M);
 
-        long[] prims = LongStream.iterate(1, i -> (i * prim) % M).limit(fs.length).toArray();
+        long primN = 1;
+        long[] res= new long[length];
+        for (int i = 0; i < length; i++) {
+            res[i] = (fftA[i % fftA.length] + ((primN * fftB[i % fftB.length])) % M) % M;
+            primN = (primN * prim) % M;
+        }
 
-        return IntStream.range(0, fs.length)
-                .mapToLong(i -> (fftA[i % fftA.length] + ((prims[i] * fftB[i % fftB.length])) % M) % M)
-                .toArray();
+        return res;
     }
 
     public static long[] fft(long[] fs) {
-        return fft(fs, getPrimitive(fs.length));
+        return fft(new ArrView(fs), getPrimitive(fs.length));
     }
 
     public static long[] fftInv(long[] fs) {
         long invN = invByEuclid(fs.length);
-        return Arrays.stream(fft(fs, getPrimitiveInv(fs.length)))
+        return Arrays.stream(fft(new ArrView(fs), getPrimitiveInv(fs.length)))
                 .map(a -> (invN * a) % M)
                 .toArray();
     }
@@ -127,7 +168,6 @@ class FFT {
 
     static final int BASE = 100;
     static final int LOG10_BASE = 2;
-    static final String ZEROES = "00";
 
     static String addPadding(String s) {
         return Stream.generate(() -> "0").limit((LOG10_BASE - s.length() % LOG10_BASE) % LOG10_BASE).collect(Collectors.joining()) + s;
@@ -142,9 +182,7 @@ class FFT {
 
     static String numberToString(long[] a) {
         String s = IntStream.range(0, a.length)
-                .mapToObj(i -> String.valueOf(a[a.length - 1 - i]))
-                .map(FFT::addPadding)
-                .map(p -> p.isEmpty() ? ZEROES : p)
+                .mapToObj(i -> String.valueOf(a[a.length - 1 - i] + BASE).substring(1))
                 .collect(Collectors.joining());
 
         int p = IntStream.range(0, s.length())
@@ -240,6 +278,7 @@ class Test {
 
         Random random = new Random();
         int n = 250000;
+        //int n = 20;
         String a = "9" + IntStream.range(0, n).mapToObj(r -> random.nextInt(10)).map(String::valueOf).collect(Collectors.joining());
         String b = "6" + IntStream.range(0, n).mapToObj(r -> random.nextInt(10)).map(String::valueOf).collect(Collectors.joining());
 
