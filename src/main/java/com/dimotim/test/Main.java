@@ -103,40 +103,89 @@ class FFT {
         }
     }
 
+    private static class ArrViewAns {
+        long[] ms;
+        int start;
+        int length;
+
+        public ArrViewAns(long[] ms) {
+            this.ms = ms;
+            start = 0;
+            length = ms.length;
+        }
+
+        public ArrViewAns(long[] ms, int start, int length) {
+            this.ms = ms;
+            this.start = start;
+            this.length = length;
+        }
+
+        long getAt(int i) {
+            return ms[start + i];
+        }
+
+        void setAt(int i, long v) {
+            ms[start + i] = v;
+        }
+
+        ArrViewAns left() {
+            return new ArrViewAns(ms, start, length / 2);
+        }
+
+        ArrViewAns right() {
+            return new ArrViewAns(ms, start + length / 2, length / 2);
+        }
+    }
+
     /**
      *
      * F(w) = A(w^2) + w * B(w^2)
      *
      */
-    static long[] fft(ArrView fs, long prim) {
+    static void fft(ArrView fs, long prim, ArrViewAns ans) {
         int length = fs.getLength();
         if (length == 1) {
-            return new long[] {fs.getAt(0)};
+            ans.setAt(0, fs.getAt(0));
+            return;
         }
 
         ArrView as = fs.evens();
         ArrView bs = fs.odds();
 
-        long[] fftA = fft(as, (prim * prim) % M);
-        long[] fftB = fft(bs, (prim * prim) % M);
+        ArrViewAns fftA = ans.left();
+        ArrViewAns fftB = ans.right();
 
-        long primN = 1;
-        long[] res= new long[length];
-        for (int i = 0; i < length; i++) {
-            res[i] = (fftA[i % fftA.length] + ((primN * fftB[i % fftB.length])) % M) % M;
-            primN = (primN * prim) % M;
+        fft(as, (prim * prim) % M, fftA);
+        fft(bs, (prim * prim) % M, fftB);
+
+        long[] prims = LongStream.iterate(1, i -> (i * prim) % M).limit(fs.length).toArray();
+
+        int halfLength = length / 2;
+        //long primN = 1;
+
+        for (int i = 0; i < halfLength; i++) {
+            long fftAi = fftA.getAt(i);
+            long fftBi = fftB.getAt(i);
+            long ffti = (fftAi + (prims[i] * fftBi) % M) % M;
+            long fft2i = (fftAi + (prims[i + halfLength] * fftBi) % M) % M;
+
+            ans.setAt(i, ffti);
+            ans.setAt(i + halfLength, fft2i);
+            //primN = (primN * prim) % M;
         }
-
-        return res;
     }
 
     public static long[] fft(long[] fs) {
-        return fft(new ArrView(fs), getPrimitive(fs.length));
+        long[] m = new long[fs.length];
+        fft(new ArrView(fs), getPrimitive(fs.length), new ArrViewAns(m));
+        return m;
     }
 
     public static long[] fftInv(long[] fs) {
         long invN = invByEuclid(fs.length);
-        return Arrays.stream(fft(new ArrView(fs), getPrimitiveInv(fs.length)))
+        long[] m = new long[fs.length];
+        fft(new ArrView(fs), getPrimitiveInv(fs.length), new ArrViewAns(m));
+        return Arrays.stream(m)
                 .map(a -> (invN * a) % M)
                 .toArray();
     }
@@ -156,7 +205,6 @@ class FFT {
 
     public static long[] numberMul(long[] a, long[] b) {
         long[] ch = polyMul(a, b);
-        System.out.println(Arrays.stream(ch).max());
         for (int i = 0; i < ch.length - 1; i++) {
             ch[i + 1] += ch[i] / BASE;
             ch[i] = ch[i] % BASE;
