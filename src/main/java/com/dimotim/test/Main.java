@@ -84,8 +84,6 @@ class FFT {
                 swap(i, src, m);
             }
         }
-
-        return;
     }
 
     /**
@@ -93,16 +91,16 @@ class FFT {
      * F(w) = A(w^2) + w * B(w^2)
      *
      */
-    static void fft(long fs[], long prim) {
+    static void fft(long[] fs, long prim) {
         bitsort(fs);
 
+        int fsLog2 = log2(fs.length);
 
-        long[] prims = LongStream.iterate(1, i -> (i * prim) % M).limit(fs.length).toArray();
-        long wh = prims[prims.length/2];
+        long[] prims = LongStream.iterate(prim, i -> (i * i) % M).limit(fsLog2).toArray();
 
-
-        for (int partLength = 1; partLength <= fs.length / 2 ; partLength*=2) {
-            long wn = prims[fs.length / 2 / partLength];
+        for (int level = 1; level <= fsLog2 ; level++) {
+            int partLength = 1 << (level - 1);
+            long wn = prims[prims.length - level];
 
             for (int partInd = 0; partInd < fs.length / partLength / 2; partInd++) {
                 int partStart = partLength * 2 * partInd;
@@ -116,7 +114,7 @@ class FFT {
                     long b = fs[ib];
 
                     long r1 = (a + (wi * b) % M) % M;
-                    long r2 = (a + (((wi * wh) % M) * b) % M) % M;
+                    long r2 = (a + ((M - wi) * b) % M) % M;
 
                     fs[ia] = r1;
                     fs[ib] = r2;
@@ -131,26 +129,6 @@ class FFT {
         long ma = m[a];
         m[a] = m[b];
         m[b] = ma;
-    }
-
-    static long[] fftS(long[] fs, long prim) {
-        long[] prims = LongStream.iterate(1, i -> (i * prim) % M).limit(fs.length).toArray();
-
-        if (fs.length == 1) {
-            return fs.clone();
-        }
-
-        long[] as = IntStream.iterate(0, i -> i < fs.length, i -> i + 2).mapToLong(i -> fs[i]).toArray();
-        long[] bs = IntStream.iterate(1, i -> i < fs.length, i -> i + 2).mapToLong(i -> fs[i]).toArray();
-
-        long[] fftA = fftS(as, (prim * prim) % M);
-        long[] fftB = fftS(bs, (prim * prim) % M);
-
-
-
-        return IntStream.range(0, fs.length)
-                .mapToLong(i -> (fftA[i % fftA.length] + ((prims[i] * fftB[i % fftB.length])) % M) % M)
-                .toArray();
     }
 
     public static void fft(long[] fs) {
@@ -250,56 +228,6 @@ class Test {
     }
 
     public static void main(String[] args) {
-        /*
-        System.out.println(ord(g));
-        System.out.println(ord(g * g));
-        System.out.println(ord(g * g * g));
-        System.out.println(1 << 23);
-
-
-        System.out.println(ord(getPrimitive(2)));
-        System.out.println((getPrimitive(2) * getPrimitive(2)) % M);
-
-        System.out.println(ord(getPrimitive(4)));
-        System.out.println(ord(getPrimitive(8)));
-        System.out.println(ord(getPrimitive(16)));
-        System.out.println(ord(getPrimitive(32)));
-
-        System.out.println(ord(getPrimitive(1 << 23)));
-        System.out.println(1<<23);
-
-
-        System.out.println(Arrays.toString(fftNaive(new long[]{1, 2, 3, 4}, getPrimitive(4))));
-        System.out.println(Arrays.toString(fft(new long[]{1, 2, 3, 4}, getPrimitive(4))));
-
-        System.out.println(Arrays.toString(fftNaive(new long[]{1, 2, 3, 4}, getPrimitive(4))));
-        System.out.println(Arrays.toString(fft(new long[]{1, 2, 3, 4})));
-
-        System.out.println(Arrays.toString(fftNaive(fftNaive(new long[]{1, 2, 3, 4}, getPrimitive(4)), getPrimitiveInv(4))));
-
-        System.out.println(Arrays.toString(fft(new long[]{1, 2, 3, 4})));
-        System.out.println(Arrays.toString(fftInv(fft(new long[]{1, 2, 3, 4}))));
-        System.out.println(M);
-
-        System.out.println((pow2n(g, 22) * g) % M);
-
-        System.out.println(invByEuclid(g));
-        System.out.println((invByEuclid(g) * g) % M);
-        System.out.println((invByEuclid(4) * 4) % M);
-        System.out.println((invByEuclid(getPrimitive(8)) * getPrimitive(8)) % M);
-
-        System.out.println(ord(getPrimitiveInv(8)));
-
-        System.out.println(Arrays.toString(fftInv(fft(new long[]{11, 22, 33, 44}))));
-
-
-        System.out.println(Arrays.toString(polyMul(new long[]{1,4,6,4,1}, new long[]{1,4,6,4,1})));
-        System.out.println(Arrays.toString(polyMul(new long[]{3,2,1}, new long[]{1,4})));
-
-
-        System.out.println(Arrays.toString(numberMul(new long[]{999, 999}, new long[]{999, 999})));
-        */
-
         Random random = new Random();
         int n = 250000;
         //int n = 8;
