@@ -3,13 +3,12 @@ package com.dimotim.test;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Random;
-import java.util.function.LongUnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
 
-import static com.dimotim.test.FFT.*;
+import static com.dimotim.test.FFT.numberMul;
 
 
 class FFT {
@@ -206,45 +205,28 @@ class FFT {
 
 class Test {
 
-    static long ord(long e) {
-        long i = 1;
-        long ek = e;
-
-        while (ek != 1) {
-            ek = (ek * e) % M;
-            i++;
-        }
-
-        return i;
-    }
-
-    public static long[] fftNaive(long[] fs, long prim) {
-        LongUnaryOperator evalP = x -> Arrays.stream(fs).reduce(0, (a, c) -> ((a * x) % M + c) % M);
-
-        return LongStream.iterate(1, i -> (i * prim) % M)
-                .limit(fs.length)
-                .map(evalP)
-                .toArray();
-    }
-
     public static void main(String[] args) {
         Random random = new Random();
-        int n = 250000;
-        //int n = 8;
-        String a = "9" + IntStream.range(0, n).mapToObj(r -> random.nextInt(10)).map(String::valueOf).collect(Collectors.joining());
-        String b = "6" + IntStream.range(0, n).mapToObj(r -> random.nextInt(10)).map(String::valueOf).collect(Collectors.joining());
+
+        while (true) {
+            System.out.println("===================");
+            int n = 20000;
+            //int n = 8;
+            String a = "9" + IntStream.range(0, n).mapToObj(r -> random.nextInt(10)).map(String::valueOf).collect(Collectors.joining());
+            String b = "6" + IntStream.range(0, n).mapToObj(r -> random.nextInt(10)).map(String::valueOf).collect(Collectors.joining());
 
 
-        long t1 = System.currentTimeMillis();
-        String r1 = numberMul(a, b);
-        System.out.println(System.currentTimeMillis() - t1);
-        //System.out.println(r1);
+            long t1 = System.currentTimeMillis();
+            String r1 = numberMul(a, b);
+            System.out.println(System.currentTimeMillis() - t1);
+            //System.out.println(r1);
 
-        long t2 = System.currentTimeMillis();
-        String r2 = new BigInteger(a).multiply(new BigInteger(b)).toString();
-        System.out.println(System.currentTimeMillis() - t2);
-        //System.out.println(r2);
+            long t2 = System.currentTimeMillis();
+            String r2 = new BigInteger(a).multiply(new BigInteger(b)).toString();
+            System.out.println(System.currentTimeMillis() - t2);
+            //System.out.println(r2);
 
-        System.out.println(r1.equals(r2));
+            System.out.println(r1.equals(r2));
+        }
     }
 }
