@@ -28,8 +28,8 @@ class FFT {
         return pow2n(gInv, log2OrdG - log);
     }
 
-    static long log2(long n) {
-        long log2 = 0;
+    static int log2(long n) {
+        int log2 = 0;
         while (n != 1) {
             if (n %2 != 0) throw new RuntimeException();
             n >>= 1;
@@ -66,12 +66,76 @@ class FFT {
         return (ac[1] + M) % M;
     }
 
+
+    static int reverse(int n, int log2n){
+        int res = 0;
+        for (int i = 0; i < log2n; i++) {
+            res |= ((1 & n >> i) << (log2n - 1 - i));
+        }
+        return res;
+    }
+
+    static void bitsort(long[] m) {
+        int bitCount = log2(m.length);
+
+        for (int i = 0; i < m.length; i++) {
+            int src = reverse(i, bitCount);
+            if (src > i) {
+                swap(i, src, m);
+            }
+        }
+
+        return;
+    }
+
     /**
      *
      * F(w) = A(w^2) + w * B(w^2)
      *
      */
-    static long[] fft(long[] fs, long prim) {
+    static void fft(long fs[], long prim) {
+        bitsort(fs);
+
+
+        long[] prims = LongStream.iterate(1, i -> (i * prim) % M).limit(fs.length).toArray();
+        long wh = prims[prims.length/2];
+
+
+        for (int partLength = 1; partLength <= fs.length / 2 ; partLength*=2) {
+            long wn = prims[fs.length / 2 / partLength];
+
+            for (int partInd = 0; partInd < fs.length / partLength / 2; partInd++) {
+                int partStart = partLength * 2 * partInd;
+                long wi = 1;
+
+                for (int i = 0; i < partLength; i++) {
+                    int ia = partStart + i;
+                    int ib= partStart + partLength + i;
+
+                    long a = fs[ia];
+                    long b = fs[ib];
+
+                    long r1 = (a + (wi * b) % M) % M;
+                    long r2 = (a + (((wi * wh) % M) * b) % M) % M;
+
+                    fs[ia] = r1;
+                    fs[ib] = r2;
+
+                    wi = (wi * wn) % M;
+                }
+            }
+        }
+    }
+
+    private static void swap(int a, int b, long[] m) {
+        long ma = m[a];
+        m[a] = m[b];
+        m[b] = ma;
+    }
+
+    static long[] fftS(long[] fs, long prim) {
+        long[] prims = LongStream.iterate(1, i -> (i * prim) % M).limit(fs.length).toArray();
+
         if (fs.length == 1) {
             return fs.clone();
         }
@@ -79,25 +143,26 @@ class FFT {
         long[] as = IntStream.iterate(0, i -> i < fs.length, i -> i + 2).mapToLong(i -> fs[i]).toArray();
         long[] bs = IntStream.iterate(1, i -> i < fs.length, i -> i + 2).mapToLong(i -> fs[i]).toArray();
 
-        long[] fftA = fft(as, (prim * prim) % M);
-        long[] fftB = fft(bs, (prim * prim) % M);
+        long[] fftA = fftS(as, (prim * prim) % M);
+        long[] fftB = fftS(bs, (prim * prim) % M);
 
-        long[] prims = LongStream.iterate(1, i -> (i * prim) % M).limit(fs.length).toArray();
+
 
         return IntStream.range(0, fs.length)
                 .mapToLong(i -> (fftA[i % fftA.length] + ((prims[i] * fftB[i % fftB.length])) % M) % M)
                 .toArray();
     }
 
-    public static long[] fft(long[] fs) {
-        return fft(fs, getPrimitive(fs.length));
+    public static void fft(long[] fs) {
+        fft(fs, getPrimitive(fs.length));
     }
 
-    public static long[] fftInv(long[] fs) {
+    public static void fftInv(long[] fs) {
         long invN = invByEuclid(fs.length);
-        return Arrays.stream(fft(fs, getPrimitiveInv(fs.length)))
-                .map(a -> (invN * a) % M)
-                .toArray();
+        fft(fs, getPrimitiveInv(fs.length));
+        for (int i = 0; i < fs.length; i++) {
+            fs[i] = (invN * fs[i]) % M;
+        }
     }
 
     public static long[] polyMul(long[] as, long[] bs) {
@@ -106,16 +171,16 @@ class FFT {
         long[] asPadded = LongStream.concat(Arrays.stream(as), LongStream.generate(() -> 0)).limit(n).toArray();
         long[] bsPadded = LongStream.concat(Arrays.stream(bs), LongStream.generate(() -> 0)).limit(n).toArray();
 
-        long[] asFFT = fft(asPadded);
-        long[] bsFFT = fft(bsPadded);
-        long[] rFFT = IntStream.range(0, n).mapToLong(i -> (asFFT[i] * bsFFT[i]) % M).toArray();
+        fft(asPadded);
+        fft(bsPadded);
+        long[] rFFT = IntStream.range(0, n).mapToLong(i -> (asPadded[i] * bsPadded[i]) % M).toArray();
+        fftInv(rFFT);
 
-        return fftInv(rFFT);
+        return rFFT;
     }
 
     public static long[] numberMul(long[] a, long[] b) {
         long[] ch = polyMul(a, b);
-        System.out.println(Arrays.stream(ch).max());
         for (int i = 0; i < ch.length - 1; i++) {
             ch[i + 1] += ch[i] / BASE;
             ch[i] = ch[i] % BASE;
@@ -127,7 +192,6 @@ class FFT {
 
     static final int BASE = 100;
     static final int LOG10_BASE = 2;
-    static final String ZEROES = "00";
 
     static String addPadding(String s) {
         return Stream.generate(() -> "0").limit((LOG10_BASE - s.length() % LOG10_BASE) % LOG10_BASE).collect(Collectors.joining()) + s;
@@ -142,9 +206,7 @@ class FFT {
 
     static String numberToString(long[] a) {
         String s = IntStream.range(0, a.length)
-                .mapToObj(i -> String.valueOf(a[a.length - 1 - i]))
-                .map(FFT::addPadding)
-                .map(p -> p.isEmpty() ? ZEROES : p)
+                .mapToObj(i -> String.valueOf(a[a.length - 1 - i] + BASE).substring(1))
                 .collect(Collectors.joining());
 
         int p = IntStream.range(0, s.length())
@@ -240,6 +302,7 @@ class Test {
 
         Random random = new Random();
         int n = 250000;
+        //int n = 8;
         String a = "9" + IntStream.range(0, n).mapToObj(r -> random.nextInt(10)).map(String::valueOf).collect(Collectors.joining());
         String b = "6" + IntStream.range(0, n).mapToObj(r -> random.nextInt(10)).map(String::valueOf).collect(Collectors.joining());
 
